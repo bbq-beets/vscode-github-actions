@@ -14,6 +14,8 @@ export class WorkflowJobNode extends vscode.TreeItem {
     this.contextValue = "job";
     if (this.job.job.status === "completed") {
       this.contextValue += " completed";
+    } else if (this.job.job.status === "in_progress") {
+      this.contextValue += " running";
     }
 
     this.iconPath = getIconForWorkflowRun(this.job.job);

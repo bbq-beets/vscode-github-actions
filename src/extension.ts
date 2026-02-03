@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 import {canReachGitHubAPI} from "./api/canReachGitHubAPI";
 import {getSession} from "./auth/auth";
 import {registerCancelWorkflowRun} from "./commands/cancelWorkflowRun";
+import {registerAttachWorkflowJobDebugger} from "./commands/attachWorkflowJobDebugger";
 import {registerOpenWorkflowFile} from "./commands/openWorkflowFile";
 import {registerOpenWorkflowJobLogs} from "./commands/openWorkflowJobLogs";
 import {registerOpenWorkflowStepLogs} from "./commands/openWorkflowStepLogs";
@@ -34,6 +35,7 @@ import {initResources} from "./treeViews/icons";
 import {initTreeViews} from "./treeViews/treeViews";
 import {deactivateLanguageServer, initLanguageServer} from "./workflow/languageServer";
 import {registerSignIn} from "./commands/signIn";
+import {registerWorkflowDebugging} from "./debug/workflowDebug";
 
 export async function activate(context: vscode.ExtensionContext) {
   initLogger();
@@ -76,6 +78,7 @@ export async function activate(context: vscode.ExtensionContext) {
   registerTriggerWorkflowRun(context);
   registerReRunWorkflowRun(context);
   registerCancelWorkflowRun(context);
+  registerAttachWorkflowJobDebugger(context);
 
   registerAddSecret(context);
   registerDeleteSecret(context);
@@ -112,6 +115,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Editing features
   await initLanguageServer(context);
+
+  // Debugging support
+  registerWorkflowDebugging(context);
 
   log("...initialized");
 
