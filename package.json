@@ -75,16 +75,6 @@
         "languages": [
           "github-actions-workflow"
         ],
-        "configurationAttributes": {
-          "attach": {
-            "properties": {
-              "workflowFile": {
-                "type": "string",
-                "description": "Path to the workflow file in the workspace"
-              }
-            }
-          }
-        },
         "initialConfigurations": []
       }
     ],
