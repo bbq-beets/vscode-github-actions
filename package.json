@@ -597,6 +597,7 @@
     "@actions/languageserver": "^0.3.30",
     "@actions/workflow-parser": "^0.3.30",
     "@octokit/rest": "^21.1.1",
+    "@vscode/debugprotocol": "^1.68.0",
     "@vscode/vsce": "^2.19.0",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.0",
