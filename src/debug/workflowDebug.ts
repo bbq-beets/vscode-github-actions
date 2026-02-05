@@ -3,6 +3,8 @@ import * as path from "path";
 import * as vscode from "vscode";
 import type {DebugProtocol as dap} from "@vscode/debugprotocol";
 
+import { registerWorkflowDebugProviders } from "./workflowDebugTree";
+
 const DEFAULT_DEBUG_HOST = "127.0.0.1";
 const DEFAULT_DEBUG_PORT = 4711;
 
@@ -10,6 +12,38 @@ const DEFAULT_DEBUG_PORT = 4711;
 const CHECKSUM_ALGORITHM = "sha256";
 
 export function registerWorkflowDebugging(context: vscode.ExtensionContext) {
+  registerWorkflowDebugProviders(context);
+
+  const activeSessions = new Set<string>();
+  const updateDebuggingContext = async () => {
+    await vscode.commands.executeCommand("setContext", "github-actions.debugging", activeSessions.size > 0);
+  };
+
+  const handleStart = (session: vscode.DebugSession) => {
+    if (session.type !== "github-actions") {
+      return;
+    }
+    activeSessions.add(session.id);
+    void updateDebuggingContext();
+  };
+
+  const handleTerminate = (session: vscode.DebugSession) => {
+    if (session.type !== "github-actions") {
+      return;
+    }
+    activeSessions.delete(session.id);
+    void updateDebuggingContext();
+  };
+
+  if (vscode.debug.activeDebugSession?.type === "github-actions") {
+    activeSessions.add(vscode.debug.activeDebugSession.id);
+  }
+
+  void updateDebuggingContext();
+
+  context.subscriptions.push(vscode.debug.onDidStartDebugSession(handleStart));
+  context.subscriptions.push(vscode.debug.onDidTerminateDebugSession(handleTerminate));
+
   context.subscriptions.push(
     vscode.debug.registerDebugAdapterDescriptorFactory("github-actions", new WorkflowDebugAdapterDescriptorFactory())
   );

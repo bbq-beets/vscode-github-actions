@@ -25,6 +25,7 @@
   "activationEvents": [
     "onView:workflows",
     "onView:settings",
+    "onView:github-actions.workflow-debug",
     "workspaceContains:**/.github/workflows/**",
     "workspaceContains:**/action.yml",
     "workspaceContains:**/action.yaml"
@@ -289,6 +290,13 @@
       }
     ],
     "views": {
+      "debug": [
+        {
+          "id": "github-actions.workflow-debug",
+          "name": "Actions Remote File System",
+          "when": "github-actions.debugging"
+        }
+      ],
       "github-actions": [
         {
           "id": "github-actions.current-branch",
