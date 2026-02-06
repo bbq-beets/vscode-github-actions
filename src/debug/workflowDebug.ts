@@ -6,7 +6,7 @@ import type {DebugProtocol as dap} from "@vscode/debugprotocol";
 import { registerWorkflowDebugProviders } from "./workflowDebugTree";
 
 const DEFAULT_DEBUG_HOST = "127.0.0.1";
-const DEFAULT_DEBUG_PORT = 4711;
+const DEFAULT_DEBUG_PORT = 4713;
 
 // The workflow debug adapter currently uses only sha256 checksums.
 const CHECKSUM_ALGORITHM = "sha256";
@@ -87,10 +87,17 @@ class WorkflowDebugConfigurationProvider implements vscode.DebugConfigurationPro
 }
 
 class WorkflowDebugAdapterTrackerFactory implements vscode.DebugAdapterTrackerFactory {
-  createDebugAdapterTracker(): vscode.DebugAdapterTracker {
+  createDebugAdapterTracker(session: vscode.DebugSession): vscode.DebugAdapterTracker {
     const debugToLocalPaths = new Map<string, string>();
     const localToDebugPaths = new Map<string, string>();
     const pendingResolutions = new Map<string, Promise<void>>();
+
+    // Get identity from session configuration (passed from attachWorkflowJobDebugger)
+    const config = session.configuration;
+    const githubActor = config.githubActor || "unknown";
+    const githubRepository = config.githubRepository || "unknown";
+    const githubRunID = config.githubRunID || "unknown";
+    const githubJobID = config.githubJobID || "";
 
     // Precompute workflow file checksums to enable mapping repo-relative DAP sources to
     // local files on first stack trace.
@@ -102,6 +109,16 @@ class WorkflowDebugAdapterTrackerFactory implements vscode.DebugAdapterTrackerFa
     return {
       // Apply transformations to messages as they are sent to the debug adapter.
       onWillReceiveMessage: (message: dap.ProtocolMessage) => {
+        // Inject identity fields into initialize request for DAP proxy
+        if (isDapRequest(message) && (message as dap.Request).command === "initialize") {
+          const initRequest = message as dap.InitializeRequest;
+          const args = initRequest.arguments as unknown as Record<string, unknown>;
+          args.githubActor = githubActor;
+          args.githubRepository = githubRepository;
+          args.githubRunID = githubRunID;
+          args.githubJobID = githubJobID;
+        }
+
         transformSentSourcePaths(message, {
           debugToLocalPaths,
           localToDebugPaths,
