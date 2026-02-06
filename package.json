@@ -175,7 +175,14 @@
         "command": "github-actions.workflow.job.attachDebugger",
         "category": "GitHub Actions",
         "title": "Attach debugger to job",
-        "when": "viewItem =~ /job/",
+        "when": "viewItem =~ /job/ && viewItem =~ /running/",
+        "icon": "$(debug)"
+      },
+      {
+        "command": "github-actions.workflow.job.rerunDebug",
+        "category": "GitHub Actions",
+        "title": "Re-run and debug job",
+        "when": "viewItem =~ /job/ && viewItem =~ /failed/",
         "icon": "$(debug)"
       },
       {
@@ -409,6 +416,11 @@
           "when": "viewItem =~ /job/ && viewItem =~ /running/"
         },
         {
+          "command": "github-actions.workflow.job.rerunDebug",
+          "group": "inline@1",
+          "when": "viewItem =~ /job/ && viewItem =~ /failed/"
+        },
+        {
           "command": "github-actions.workflow.logs",
           "group": "inline",
           "when": "viewItem =~ /job/ && viewItem =~ /completed/"
@@ -495,6 +507,10 @@
         },
         {
           "command": "github-actions.workflow.job.attachDebugger",
+          "when": "false"
+        },
+        {
+          "command": "github-actions.workflow.job.rerunDebug",
           "when": "false"
         },
         {

@@ -10,6 +10,7 @@ import {registerOpenWorkflowStepLogs} from "./commands/openWorkflowStepLogs";
 import {registerOpenWorkflowRun} from "./commands/openWorkflowRun";
 import {registerPinWorkflow} from "./commands/pinWorkflow";
 import {registerReRunWorkflowRun} from "./commands/rerunWorkflowRun";
+import {registerReRunWorkflowJobWithDebug} from "./commands/rerunWorkflowJobDebug";
 import {registerAddSecret} from "./commands/secrets/addSecret";
 import {registerCopySecret} from "./commands/secrets/copySecret";
 import {registerDeleteSecret} from "./commands/secrets/deleteSecret";
@@ -77,6 +78,7 @@ export async function activate(context: vscode.ExtensionContext) {
   registerOpenWorkflowStepLogs(context);
   registerTriggerWorkflowRun(context);
   registerReRunWorkflowRun(context);
+  registerReRunWorkflowJobWithDebug(context);
   registerCancelWorkflowRun(context);
   registerAttachWorkflowJobDebugger(context);
 
