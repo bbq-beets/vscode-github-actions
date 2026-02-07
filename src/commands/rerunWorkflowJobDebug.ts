@@ -42,14 +42,9 @@ export function registerReRunWorkflowJobWithDebug(context: vscode.ExtensionConte
 
       const updatedJob = await pollJobRunning(gitHubRepoContext, runId, jobName, 15, 1000);
       if (!updatedJob) {
-        WorkflowJobNode.clearStatusOverride(runId, jobName);
-        await refreshWorkflowViews();
         await vscode.window.showWarningMessage("Job did not start running within 15 seconds.");
         return;
       }
-
-      WorkflowJobNode.setStatusOverride(runId, jobName, "in_progress", null);
-      await refreshWorkflowViews();
 
       await vscode.commands.executeCommand("github-actions.workflow.job.attachDebugger", {
         gitHubRepoContext,
@@ -70,12 +65,14 @@ async function pollJobRunning(
   for (let attempt = 0; attempt < attempts; attempt++) {
     const job = await getJobByName(gitHubRepoContext, runId, jobName, rerunStart);
     if (job?.status === "in_progress") {
+      await clearStatusOverride(runId, jobName);
       return job;
     }
 
     await delay(delayMs);
   }
 
+  await clearStatusOverride(runId, jobName);
   return undefined;
 }
 
@@ -124,6 +121,11 @@ async function refreshWorkflowViews(): Promise<void> {
     vscode.commands.executeCommand("github-actions.explorer.refresh"),
     vscode.commands.executeCommand("github-actions.explorer.current-branch.refresh")
   ]);
+}
+
+async function clearStatusOverride(runId: number, jobName: string): Promise<void> {
+  WorkflowJobNode.clearStatusOverride(runId, jobName);
+  await refreshWorkflowViews();
 }
 
 function delay(ms: number): Promise<void> {

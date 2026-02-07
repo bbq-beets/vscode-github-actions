@@ -3,10 +3,10 @@ import * as path from "path";
 import * as vscode from "vscode";
 import type {DebugProtocol as dap} from "@vscode/debugprotocol";
 
-import { registerWorkflowDebugProviders } from "./workflowDebugTree";
+import {registerWorkflowDebugProviders} from "./workflowDebugTree";
 
 const DEFAULT_DEBUG_HOST = "127.0.0.1";
-const DEFAULT_DEBUG_PORT = 4713;
+const DEFAULT_DEBUG_PORT = 4711;
 
 // The workflow debug adapter currently uses only sha256 checksums.
 const CHECKSUM_ALGORITHM = "sha256";
@@ -128,6 +128,16 @@ class WorkflowDebugAdapterTrackerFactory implements vscode.DebugAdapterTrackerFa
       },
       // Apply transformations to messages as they are received from the debug adapter.
       onDidSendMessage: (message: dap.ProtocolMessage) => {
+        if (isDapResponse(message) && message.command === "initialize") {
+          const initResponseBody = (message as dap.InitializeResponse).body;
+          if (initResponseBody) {
+            // Report that the debug adapter supports restart requests, so that VS Code will
+            // try to send them instead of terminate+launch when the user clicks "Restart".
+            // An error response is expected, and the restart will be blocked.
+            initResponseBody.supportsRestartRequest = true;
+          }
+        }
+
         transformReceivedSourcePaths(message, {
           debugToLocalPaths,
           localToDebugPaths,

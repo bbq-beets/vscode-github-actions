@@ -4,8 +4,6 @@ import {getGitHubContext} from "../git/repository";
 
 export type AttachWorkflowJobDebuggerArgs = Pick<WorkflowJobNode, "gitHubRepoContext" | "job">;
 
-const DEFAULT_DEBUG_PORT = 4713;
-
 export function registerAttachWorkflowJobDebugger(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand(
@@ -25,14 +23,13 @@ export function registerAttachWorkflowJobDebugger(context: vscode.ExtensionConte
           name: `GitHub Actions: ${title}`,
           type: "github-actions",
           request: "attach",
-          port: DEFAULT_DEBUG_PORT,
           workflowName,
           jobName,
           // Identity fields for DAP proxy audit logging
           githubActor: username,
           githubRepository: `${repoContext.owner}/${repoContext.name}`,
           githubRunID: String(job.run_id),
-          githubJobID: String(job.id),
+          githubJobID: String(job.id)
         };
 
         const folder = vscode.workspace.workspaceFolders?.[0];
