@@ -6,6 +6,8 @@ import {
   DapFileSystemContentEncoding,
   DapFileSystemEntryType,
   DapFileSystemEvent,
+  DapFileSystemStatus,
+  type FileSystemErrorResponseBody,
   type FileSystemChangeEventBody,
   type FileSystemCreateDirectoryRequestArguments,
   type FileSystemDeleteRequestArguments,
@@ -15,11 +17,15 @@ import {
   type FileSystemReadFileResponseBody,
   type FileSystemStatRequestArguments,
   type FileSystemStatResponseBody,
+  type FileSystemRenameRequestArguments,
+  type FileSystemCopyRequestArguments,
   type FileSystemUnwatchRequestArguments,
   type FileSystemWatchRequestArguments,
   type FileSystemWatchResponseBody,
-  type FileSystemWriteFileRequestArguments
+  type FileSystemWriteFileRequestArguments,
+  FileSystemResponseBody
 } from "./dapFileSystemMessages";
+import {DEBUG_SESSION_TYPE} from "./workflowDebug";
 
 export class WorkflowDebugFileSystemProvider implements vscode.FileSystemProvider, vscode.Disposable {
   private readonly onDidChangeFileEmitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
@@ -29,11 +35,7 @@ export class WorkflowDebugFileSystemProvider implements vscode.FileSystemProvide
   constructor(private readonly scheme: string) {
     this.disposables.push(
       vscode.debug.onDidReceiveDebugSessionCustomEvent(event => {
-        if (event.session.type !== "github-actions") {
-          return;
-        }
-
-        if (event.event !== DapFileSystemEvent.Changed) {
+        if (event.session.type !== DEBUG_SESSION_TYPE || event.event !== DapFileSystemEvent.Changed) {
           return;
         }
 
@@ -78,7 +80,7 @@ export class WorkflowDebugFileSystemProvider implements vscode.FileSystemProvide
         }
 
         const unwatchRequest: FileSystemUnwatchRequestArguments = {watchId};
-        void this.sendRequest<void>(DapFileSystemCommand.Unwatch, unwatchRequest).catch(() => undefined);
+        void this.sendRequest(DapFileSystemCommand.Unwatch, unwatchRequest).catch(() => undefined);
       });
     });
   }
@@ -107,7 +109,7 @@ export class WorkflowDebugFileSystemProvider implements vscode.FileSystemProvide
 
   async createDirectory(uri: vscode.Uri): Promise<void> {
     const request: FileSystemCreateDirectoryRequestArguments = {path: uri.path};
-    await this.sendRequest<void>(DapFileSystemCommand.CreateDirectory, request);
+    await this.sendRequest(DapFileSystemCommand.CreateDirectory, request);
   }
 
   async readFile(uri: vscode.Uri): Promise<Uint8Array> {
@@ -127,25 +129,48 @@ export class WorkflowDebugFileSystemProvider implements vscode.FileSystemProvide
       create: options.create,
       overwrite: options.overwrite
     };
-    await this.sendRequest<void>(DapFileSystemCommand.WriteFile, request);
+    await this.sendRequest(DapFileSystemCommand.WriteFile, request);
   }
 
   async delete(uri: vscode.Uri, options: {recursive: boolean}): Promise<void> {
     const request: FileSystemDeleteRequestArguments = {path: uri.path, recursive: options.recursive};
-    await this.sendRequest<void>(DapFileSystemCommand.Delete, request);
+    await this.sendRequest(DapFileSystemCommand.Delete, request);
   }
 
-  rename(): void {
-    throw vscode.FileSystemError.Unavailable("Rename is not supported by the remote filesystem");
+  async rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: {overwrite: boolean}): Promise<void> {
+    const request: FileSystemRenameRequestArguments = {
+      oldPath: oldUri.path,
+      newPath: newUri.path,
+      overwrite: options.overwrite
+    };
+    await this.sendRequest(DapFileSystemCommand.Rename, request);
   }
 
-  private async sendRequest<T>(command: string, args: unknown): Promise<T> {
+  async copy(source: vscode.Uri, destination: vscode.Uri, options: {overwrite: boolean}): Promise<void> {
+    const request: FileSystemCopyRequestArguments = {
+      sourcePath: source.path,
+      destinationPath: destination.path,
+      overwrite: options.overwrite
+    };
+    await this.sendRequest(DapFileSystemCommand.Copy, request);
+  }
+
+  private async sendRequest<T extends FileSystemResponseBody = FileSystemResponseBody>(
+    command: string,
+    args: unknown
+  ): Promise<T> {
     const session = vscode.debug.activeDebugSession;
-    if (!session || session.type !== "github-actions") {
-      throw vscode.FileSystemError.Unavailable("No active GitHub Actions debug session");
+    if (!session || session.type !== DEBUG_SESSION_TYPE) {
+      throw vscode.FileSystemError.Unavailable("No active GitHub Actions debug session.");
     }
 
-    return (await session.customRequest(command, args)) as T;
+    const responseBody: T = await session.customRequest(command, args);
+
+    if (responseBody?.status && responseBody.status !== DapFileSystemStatus.Ok) {
+      throw toFileSystemError(responseBody as FileSystemErrorResponseBody);
+    }
+
+    return responseBody as T;
   }
 }
 
@@ -179,31 +204,33 @@ function toUriPath(remotePath: string): string {
   if (!remotePath) {
     return "/";
   }
-
   return remotePath.startsWith("/") ? remotePath : `/${remotePath}`;
 }
 
 function decodeBase64(content: string): Uint8Array {
-  if (typeof Buffer !== "undefined") {
-    return Uint8Array.from(Buffer.from(content, "base64"));
-  }
-
-  const binary = atob(content);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
+  return Uint8Array.from(Buffer.from(content, "base64"));
 }
 
 function encodeBase64(content: Uint8Array): string {
-  if (typeof Buffer !== "undefined") {
-    return Buffer.from(content).toString("base64");
-  }
+  return Buffer.from(content).toString("base64");
+}
 
-  let binary = "";
-  for (const byte of content) {
-    binary += String.fromCharCode(byte);
+function toFileSystemError(error: FileSystemErrorResponseBody): vscode.FileSystemError {
+  const message = error.error?.format ?? "An unknown file system error occurred.";
+
+  switch (error.status) {
+    case DapFileSystemStatus.NotFound:
+      return vscode.FileSystemError.FileNotFound(message);
+    case DapFileSystemStatus.Exists:
+      return vscode.FileSystemError.FileExists(message);
+    case DapFileSystemStatus.AccessDenied:
+      return vscode.FileSystemError.NoPermissions(message);
+    case DapFileSystemStatus.IOError:
+    case DapFileSystemStatus.Unavailable:
+      return vscode.FileSystemError.Unavailable(message);
+    case DapFileSystemStatus.FormatError:
+    case DapFileSystemStatus.InvalidArgs:
+    default:
+      return new vscode.FileSystemError(message);
   }
-  return btoa(binary);
 }

@@ -5,6 +5,8 @@ import type {DebugProtocol as dap} from "@vscode/debugprotocol";
 
 import {registerWorkflowDebugProviders} from "./workflowDebugTree";
 
+export const DEBUG_SESSION_TYPE = "github-actions";
+
 const DEFAULT_DEBUG_HOST = "127.0.0.1";
 const DEFAULT_DEBUG_PORT = 4711;
 
@@ -20,7 +22,7 @@ export function registerWorkflowDebugging(context: vscode.ExtensionContext) {
   };
 
   const handleStart = (session: vscode.DebugSession) => {
-    if (session.type !== "github-actions") {
+    if (session.type !== DEBUG_SESSION_TYPE) {
       return;
     }
     activeSessions.add(session.id);
@@ -28,14 +30,14 @@ export function registerWorkflowDebugging(context: vscode.ExtensionContext) {
   };
 
   const handleTerminate = (session: vscode.DebugSession) => {
-    if (session.type !== "github-actions") {
+    if (session.type !== DEBUG_SESSION_TYPE) {
       return;
     }
     activeSessions.delete(session.id);
     void updateDebuggingContext();
   };
 
-  if (vscode.debug.activeDebugSession?.type === "github-actions") {
+  if (vscode.debug.activeDebugSession?.type === DEBUG_SESSION_TYPE) {
     activeSessions.add(vscode.debug.activeDebugSession.id);
   }
 
@@ -45,15 +47,15 @@ export function registerWorkflowDebugging(context: vscode.ExtensionContext) {
   context.subscriptions.push(vscode.debug.onDidTerminateDebugSession(handleTerminate));
 
   context.subscriptions.push(
-    vscode.debug.registerDebugAdapterDescriptorFactory("github-actions", new WorkflowDebugAdapterDescriptorFactory())
+    vscode.debug.registerDebugAdapterDescriptorFactory(DEBUG_SESSION_TYPE, new WorkflowDebugAdapterDescriptorFactory())
   );
 
   context.subscriptions.push(
-    vscode.debug.registerDebugConfigurationProvider("github-actions", new WorkflowDebugConfigurationProvider())
+    vscode.debug.registerDebugConfigurationProvider(DEBUG_SESSION_TYPE, new WorkflowDebugConfigurationProvider())
   );
 
   context.subscriptions.push(
-    vscode.debug.registerDebugAdapterTrackerFactory("github-actions", new WorkflowDebugAdapterTrackerFactory())
+    vscode.debug.registerDebugAdapterTrackerFactory(DEBUG_SESSION_TYPE, new WorkflowDebugAdapterTrackerFactory())
   );
 }
 
@@ -71,7 +73,7 @@ class WorkflowDebugConfigurationProvider implements vscode.DebugConfigurationPro
     config: vscode.DebugConfiguration
   ): vscode.ProviderResult<vscode.DebugConfiguration> {
     if (!config.type) {
-      config.type = "github-actions";
+      config.type = DEBUG_SESSION_TYPE;
     }
 
     if (!config.request) {
